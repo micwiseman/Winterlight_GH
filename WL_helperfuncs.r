@@ -18,7 +18,7 @@ speech_read_and_preprocess <- function(file_path, additional_filters = NULL,
 
 ## Function to read and process each sheet
 demo_read_and_process <- function(sheet_number) {
-  file_path <- (here("TMS_CTRL_Demographics.xlsx")
+  file_path <- (here("TMS_CTRL_Demographics.xlsx"))
   data <- read_excel(file_path, sheet = sheet_number)
   names(data)[1] <- "participant_external_id"
   if (sheet_number == 2) {
