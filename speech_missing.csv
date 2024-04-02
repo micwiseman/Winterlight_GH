@@ -1,0 +1,6 @@
+"","ParticipantID","MissingValuesCount","MissingColumns","IsDuplicateRow"
+"109","TMS055",8,"fundamental_frequency_mean, fundamental_frequency_variance, intensity_mean_db, medium_pause_duration, speech_rate, sentiment_dominance, sentiment_valence, sentiment_arousal",TRUE
+"110","TMS055",8,"fundamental_frequency_mean, fundamental_frequency_variance, intensity_mean_db, medium_pause_duration, speech_rate, sentiment_dominance, sentiment_valence, sentiment_arousal",TRUE
+"129","TMS055",8,"fundamental_frequency_mean, fundamental_frequency_variance, intensity_mean_db, medium_pause_duration, speech_rate, sentiment_dominance, sentiment_valence, sentiment_arousal",TRUE
+"130","TMS055",8,"fundamental_frequency_mean, fundamental_frequency_variance, intensity_mean_db, medium_pause_duration, speech_rate, sentiment_dominance, sentiment_valence, sentiment_arousal",TRUE
+"171","TMS053",8,"fundamental_frequency_mean, fundamental_frequency_variance, intensity_mean_db, medium_pause_duration, speech_rate, sentiment_dominance, sentiment_valence, sentiment_arousal",FALSE

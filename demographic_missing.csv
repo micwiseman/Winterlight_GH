@@ -1,0 +1,35 @@
+"","ParticipantID","MissingValuesCount","MissingColumns","IsDuplicateRow"
+"47","TMS028",3,"age_learned_english, years_education, first_language_english",TRUE
+"48","TMS028",3,"age_learned_english, years_education, first_language_english",TRUE
+"61","TMS035",1,"years_education",TRUE
+"62","TMS035",1,"years_education",TRUE
+"77","TMS044",3,"age_learned_english, years_education, first_language_english",TRUE
+"78","TMS044",3,"age_learned_english, years_education, first_language_english",TRUE
+"81","TMS046",3,"age_learned_english, years_education, first_language_english",TRUE
+"82","TMS046",3,"age_learned_english, years_education, first_language_english",TRUE
+"97","MDD106",3,"age_learned_english, years_education, first_language_english",TRUE
+"98","MDD106",3,"age_learned_english, years_education, first_language_english",TRUE
+"99","MDD107",3,"age_learned_english, years_education, first_language_english",TRUE
+"100","MDD107",3,"age_learned_english, years_education, first_language_english",TRUE
+"103","TMS044",3,"age_learned_english, years_education, first_language_english",TRUE
+"104","TMS044",3,"age_learned_english, years_education, first_language_english",TRUE
+"105","TMS046",3,"age_learned_english, years_education, first_language_english",TRUE
+"106","TMS046",3,"age_learned_english, years_education, first_language_english",TRUE
+"125","TMS044",3,"age_learned_english, years_education, first_language_english",TRUE
+"126","TMS044",3,"age_learned_english, years_education, first_language_english",TRUE
+"135","MFB13",2,"age_learned_english, first_language_english",TRUE
+"136","MFB13",2,"age_learned_english, first_language_english",TRUE
+"173","CTC060",1,"age_learned_english",TRUE
+"174","CTC060",1,"age_learned_english",TRUE
+"175","CTC061",1,"age_learned_english",TRUE
+"176","CTC061",1,"age_learned_english",TRUE
+"177","CTC062",1,"age_learned_english",TRUE
+"178","CTC062",1,"age_learned_english",TRUE
+"179","MFB14",5,"sex, age_screening, age_learned_english, years_education, first_language_english",TRUE
+"180","MFB14",5,"sex, age_screening, age_learned_english, years_education, first_language_english",TRUE
+"181","CTC065",1,"age_learned_english",TRUE
+"182","CTC065",1,"age_learned_english",TRUE
+"183","CTC074",1,"age_learned_english",TRUE
+"184","CTC074",1,"age_learned_english",TRUE
+"185","CTC070",1,"age_learned_english",TRUE
+"186","CTC070",1,"age_learned_english",TRUE
