@@ -1,12 +1,24 @@
 "","ParticipantID","MissingValuesCount","MissingColumns","IsDuplicateRow"
-"9","MFB13",1,"hamd17_total_pre",TRUE
-"10","MFB13",1,"hamd17_total_pre",TRUE
+"1","MDD103",1,"qids_total_pre",TRUE
+"2","MDD103",1,"qids_total_pre",TRUE
+"3","MDD104",1,"qids_total_pre",TRUE
+"4","MDD104",1,"qids_total_pre",TRUE
+"5","MDD106",1,"qids_total_pre",TRUE
+"6","MDD106",1,"qids_total_pre",TRUE
+"7","MDD107",1,"qids_total_pre",TRUE
+"8","MDD107",1,"qids_total_pre",TRUE
+"9","MFB13",2,"hamd17_total_pre, qids_total_pre",TRUE
+"10","MFB13",2,"hamd17_total_pre, qids_total_pre",TRUE
+"29","TMS010",1,"qids_total_pre",TRUE
+"30","TMS010",1,"qids_total_pre",TRUE
+"57","TMS028",1,"qids_total_pre",TRUE
+"58","TMS028",1,"qids_total_pre",TRUE
 "71","TMS035",1,"hamd17_total_pre",TRUE
 "72","TMS035",1,"hamd17_total_pre",TRUE
 "103","TMS052",1,"hamd17_total_pre",TRUE
 "104","TMS052",1,"hamd17_total_pre",TRUE
-"111","TMS057",1,"hamd17_total_pre",TRUE
-"112","TMS057",1,"hamd17_total_pre",TRUE
+"111","TMS057",2,"hamd17_total_pre, qids_total_pre",TRUE
+"112","TMS057",2,"hamd17_total_pre, qids_total_pre",TRUE
 "117","CTC001",1,"hamd17_total_pre",TRUE
 "118","CTC001",1,"hamd17_total_pre",TRUE
 "119","CTC015",1,"hamd17_total_pre",TRUE
@@ -39,16 +51,16 @@
 "146","CTC055",1,"hamd17_total_pre",TRUE
 "147","CTC059",1,"hamd17_total_pre",TRUE
 "148","CTC059",1,"hamd17_total_pre",TRUE
-"149","TMS053",1,"hamd17_total_pre",TRUE
-"150","TMS053",1,"hamd17_total_pre",TRUE
+"149","TMS053",2,"hamd17_total_pre, qids_total_pre",TRUE
+"150","TMS053",2,"hamd17_total_pre, qids_total_pre",TRUE
 "151","CTC060",1,"hamd17_total_pre",TRUE
 "152","CTC060",1,"hamd17_total_pre",TRUE
 "153","CTC061",1,"hamd17_total_pre",TRUE
 "154","CTC061",1,"hamd17_total_pre",TRUE
 "155","CTC062",1,"hamd17_total_pre",TRUE
 "156","CTC062",1,"hamd17_total_pre",TRUE
-"157","MFB14",1,"hamd17_total_pre",TRUE
-"158","MFB14",1,"hamd17_total_pre",TRUE
+"157","MFB14",2,"hamd17_total_pre, qids_total_pre",TRUE
+"158","MFB14",2,"hamd17_total_pre, qids_total_pre",TRUE
 "159","CTC065",1,"hamd17_total_pre",TRUE
 "160","CTC065",1,"hamd17_total_pre",TRUE
 "161","CTC074",1,"hamd17_total_pre",TRUE
