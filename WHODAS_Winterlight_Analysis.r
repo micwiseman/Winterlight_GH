@@ -146,11 +146,16 @@ WL_demo <- WL_combined %>% left_join(demoALL %>% select(participant_external_id,
                                           starts_with("gad7")))
 
 # Read in psychiatry data
-psych <- read_csv(here("Final_Consolidated_Psychiatry_Data.csv"))
+# Correctly specify the file path using the here function
+file_path <- here("Final_Consolidated_Psychiatry_Data.csv")
+# Read in the psychiatry data with empty cells coded as NAs
+psych <- read_csv(file_path)
 
 # Filter to match participant IDs in WL_demo
 psych_filtered <- psych %>%
   filter(participant_external_id %in% WL_demo$participant_external_id)
+
+
 
 # Merge the datasets based on "participant_external_id" and retain all columns
 # Use full_join to include all participants from both datasets
@@ -163,6 +168,8 @@ WL_demo_psych <- full_join(psych_filtered %>% select(participant_external_id,
                            by = "participant_external_id",
                            suffix = c("", ".psych"))
 
+
+
 # Identify common columns (excluding "participant_external_id")
 common_columns <- setdiff(intersect(names(WL_demo), names(psych_filtered)), "participant_external_id")
 
@@ -173,6 +180,7 @@ WL_demo_psych <- WL_demo_psych %>%
 
 # Optionally, remove the extra columns if they are no longer needed
 WL_demo_psych <- select(WL_demo_psych, -ends_with(".psych"))
+
 
 ## Score WHODAS
 # Define the items for each domain
@@ -197,6 +205,30 @@ domains <- list(
   whodas_soc = list(items = c("whodas_soc_1_pre", "whodas_soc_2_pre", "whodas_soc_3_pre", 'whodas_soc_4_pre',
                               'whodas_soc_5_pre', 'whodas_soc_7_pre', 'whodas_soc_8_pre'), divisor = 32)
 )
+
+# Recode each item for each row in WL_demo_psych
+for (domain in names(domains)) {
+  for (item in domains[[domain]]$items) {
+    WL_demo_psych[[item]] <- sapply(WL_demo_psych[[item]], function(value) {
+      if (is.na(value)) {
+        return(NA)  # Keep NA values as NA
+      } else if (value == 1) {
+        return(0)
+      } else if (value == 2) {
+        return(1)
+      } else if (value == 3) {
+        return(2)
+      } else if (value == 4) {
+        return(3)
+      } else if (value == 5) {
+        return(4)
+      } else {
+        return(NA)
+      }
+    })
+  }
+}
+
 
 # Function to calculate domain scores with missing data handling and imputation - according to WHO guidelines for handling missing data
 calculate_domain_score_complex <- function(df, items, divisor) {
@@ -229,6 +261,23 @@ calculate_domain_score_simple <- function(df, items) {
   })
 }
 
+# Define a helper function for the life activities domain
+calculate_lifeact_tot_pre <- function(df, schwork_screen_col, house_items, schwork_items, divisor_house, divisor_combined) {
+  df %>%
+    mutate(
+      whodas_lifeact_tot_pre_complex = case_when(
+        is.na(!!sym(schwork_screen_col)) ~ NA_real_,
+        !!sym(schwork_screen_col) == 1 ~ rowSums(select(., all_of(c(house_items, schwork_items))), na.rm = TRUE) / divisor_combined,
+        TRUE ~ rowSums(select(., all_of(house_items)), na.rm = TRUE) / divisor_house
+      ),
+      whodas_lifeact_tot_pre_simple = case_when(
+        is.na(!!sym(schwork_screen_col)) ~ NA_real_,
+        !!sym(schwork_screen_col) == 1 ~ rowSums(select(., all_of(c(house_items, schwork_items))), na.rm = TRUE),
+        TRUE ~ rowSums(select(., all_of(house_items)), na.rm = TRUE)
+      )
+    )
+}
+
 WL_demo_psych <- WL_demo_psych %>%
   mutate(
     whodas_undcom_tot_pre_complex = calculate_domain_score_complex(., domains$whodas_undcom$items, domains$whodas_undcom$divisor),
@@ -239,28 +288,68 @@ WL_demo_psych <- WL_demo_psych %>%
     whodas_selfcare_tot_pre_simple = calculate_domain_score_simple(., domains$whodas_selfcare$items),
     whodas_getalong_tot_pre_complex = calculate_domain_score_complex(., domains$whodas_getalong$items, domains$whodas_getalong$divisor),
     whodas_getalong_tot_pre_simple = calculate_domain_score_simple(., domains$whodas_getalong$items),
-    whodas_lifeact_tot_pre_complex = ifelse(whodas_schwork_screen_pre == 1,
-                                    rowSums(select(., all_of(c(domains$whodas_lifeact_house$items, domains$whodas_lifeact_schwork$items))), na.rm = TRUE) / 32,
-                                    rowSums(select(., all_of(domains$whodas_lifeact_house$items)), na.rm = TRUE) / 6),
-    whodas_lifeact_tot_pre_simple = ifelse(whodas_schwork_screen_pre == 1,
-                                    rowSums(select(., all_of(c(domains$whodas_lifeact_house$items, domains$whodas_lifeact_schwork$items))), na.rm = TRUE),
-                                    rowSums(select(., all_of(domains$whodas_lifeact_house$items)), na.rm = TRUE)),
     whodas_soc_tot_pre_complex = calculate_domain_score_complex(., domains$whodas_soc$items, domains$whodas_soc$divisor),
     whodas_soc_tot_pre_simple = calculate_domain_score_simple(., domains$whodas_soc$items)
+  )
+
+# Apply the lifeact calculation
+WL_demo_psych <- calculate_lifeact_tot_pre(
+  WL_demo_psych,
+  "whodas_schwork_screen_pre",
+  domains$whodas_lifeact_house$items,
+  domains$whodas_lifeact_schwork$items,
+  16, 32
 )
 
-# calculate total WHODAS scores
+print(summary(WL_demo_psych$whodas_undcom_tot_pre_complex))
+print(WL_demo_psych$participant_external_id[is.na(WL_demo_psych$whodas_undcom_tot_pre_complex)])
+
+print(summary(WL_demo_psych$whodas_getaround_tot_pre_complex))
+print(WL_demo_psych$participant_external_id[is.na(WL_demo_psych$whodas_getaround_tot_pre_complex)])
+
+print(summary(WL_demo_psych$whodas_selfcare_tot_pre_complex))
+print(WL_demo_psych$participant_external_id[is.na(WL_demo_psych$whodas_selfcare_tot_pre_complex)])
+
+print(summary(WL_demo_psych$whodas_getalong_tot_pre_complex))
+print(WL_demo_psych$participant_external_id[is.na(WL_demo_psych$whodas_getalong_tot_pre_complex)])
+
+print(summary(WL_demo_psych$whodas_lifeact_tot_pre_complex))
+print(WL_demo_psych$participant_external_id[is.na(WL_demo_psych$whodas_lifeact_tot_pre_complex)])
+
+print(summary(WL_demo_psych$whodas_soc_tot_pre_complex))
+
+print(summary(WL_demo_psych$whodas_undcom_tot_pre_simple))
+print(summary(WL_demo_psych$whodas_getaround_tot_pre_simple))
+print(summary(WL_demo_psych$whodas_selfcare_tot_pre_simple))
+print(summary(WL_demo_psych$whodas_getalong_tot_pre_simple))
+print(summary(WL_demo_psych$whodas_lifeact_tot_pre_simple))
+print(summary(WL_demo_psych$whodas_soc_tot_pre_simple))
+
+
+# Calculate total WHODAS scores with conditional handling of NAs
 WL_demo_psych <- WL_demo_psych %>%
   mutate(
-    whodas_complex_total_pre = rowSums(select(., whodas_undcom_tot_pre_complex, whodas_getaround_tot_pre_complex, whodas_selfcare_tot_pre_simple, whodas_getalong_tot_pre_complex, whodas_lifeact_tot_pre_complex, whodas_soc_tot_pre_complex), na.rm = TRUE) / 6
-  )
-WL_demo_psych <- WL_demo_psych %>%
-  mutate(
-    whodas_simple_total_pre = rowSums(select(., whodas_undcom_tot_pre_simple, whodas_getaround_tot_pre_simple, whodas_selfcare_tot_pre_simple, whodas_getalong_tot_pre_simple, whodas_lifeact_tot_pre_simple, whodas_soc_tot_pre_simple), na.rm = TRUE)
+    whodas_complex_total_pre = if_else(
+      is.na(whodas_undcom_tot_pre_complex) | is.na(whodas_getaround_tot_pre_complex) | 
+      is.na(whodas_selfcare_tot_pre_complex) | is.na(whodas_getalong_tot_pre_complex) | 
+      is.na(whodas_lifeact_tot_pre_complex) | is.na(whodas_soc_tot_pre_complex),
+      NA_real_,
+      rowSums(select(., whodas_undcom_tot_pre_complex, whodas_getaround_tot_pre_complex, whodas_selfcare_tot_pre_complex, whodas_getalong_tot_pre_complex, whodas_lifeact_tot_pre_complex, whodas_soc_tot_pre_complex)) / 6
+    )
   )
 
-WL_demo_psych$whodas_complex_total_pre <- ifelse(WL_demo_psych$whodas_complex_total_pre == 0, NA, WL_demo_psych$whodas_complex_total_pre)
-WL_demo_psych$whodas_simple_total_pre <- ifelse(WL_demo_psych$whodas_simple_total_pre == 0, NA, WL_demo_psych$whodas_simple_total_pre)
+WL_demo_psych <- WL_demo_psych %>%
+  mutate(
+    whodas_simple_total_pre = if_else(
+      is.na(whodas_undcom_tot_pre_simple) | is.na(whodas_getaround_tot_pre_simple) | 
+      is.na(whodas_selfcare_tot_pre_simple) | is.na(whodas_getalong_tot_pre_simple) | 
+      is.na(whodas_lifeact_tot_pre_simple) | is.na(whodas_soc_tot_pre_simple),
+      NA_real_,
+      rowSums(select(., whodas_undcom_tot_pre_simple, whodas_getaround_tot_pre_simple, whodas_selfcare_tot_pre_simple, whodas_getalong_tot_pre_simple, whodas_lifeact_tot_pre_simple, whodas_soc_tot_pre_simple))
+    )
+  )
+print(summary(WL_demo_psych$whodas_complex_total_pre))
+print(summary(WL_demo_psych$whodas_simple_total_pre))
 
 
 # Subset to look at journaling and baseline scores
@@ -285,6 +374,8 @@ WL_jou_bl_MDD_feeling <- WL_jou_bl_MDD %>% filter(stimulus_filename == "en_instr
 
 ### visualize WHODAS simple 
  # Select WHODAS columns
+ library(ggplot2)
+
   whodas_pre_columns_simple <- grep("^whodas_.*_tot_pre_simple$", names(WL_jou_bl_MDD_feeling), value = TRUE)
   
   # Gather data for plotting
@@ -322,6 +413,8 @@ WL_jou_bl_MDD_feeling <- WL_jou_bl_MDD %>% filter(stimulus_filename == "en_instr
   
   print(p4)
 
+print(summary(WL_jou_bl_MDD_feeling$whodas_simple_total_pre))
+print(WL_jou_bl_MDD_feeling$participant_external_id[is.na(WL_jou_bl_MDD_feeling$whodas_simple_total_pre)])
 
 ### visualize WHODAS complex 
  # Select WHODAS columns
@@ -362,8 +455,9 @@ WL_jou_bl_MDD_feeling <- WL_jou_bl_MDD %>% filter(stimulus_filename == "en_instr
   
   print(p2)
 
+print(summary(WL_jou_bl_MDD_feeling$whodas_complex_total_pre))
+
 # Linear regression for each speech variable against WHODAS using complex scores 
-library(ggplot2)
 library(lmtest)
 
 results <- list()
@@ -465,12 +559,17 @@ WL_jou_bl_MDD_feeling <- WL_jou_bl_MDD %>% filter(stimulus_filename == "en_instr
   print(p2)
 
 
+# Linear regression for each speech variable against WHODAS using complex scores 
+library(ggplot2)
+library(lmtest)
+
 results <- list()
 plots <- list()
 stats_df <- data.frame()  # Dataframe to store statistics
 p_values_lms <- c()  # Vector to collect p-values
+# Ensure graphics device is set
 
-
+# Loop through each speech variable
 for (s in speech_variables) {
     # Filter out observations where sex is NA
     filtered_data <- WL_jou_bl_MDD_feeling %>%
@@ -488,7 +587,7 @@ for (s in speech_variables) {
     
     # Extract coefficients and p-values
     coefs <- summary(model)$coefficients
-    p_values_lms<- c(p_values_lms, coefs[2, "Pr(>|t|)"])  # Collect p-values
+    p_values_lms <- c(p_values_lms, coefs[2, "Pr(>|t|)"])  # Collect p-values
     
     # Create a summary stats row
     stats_row <- data.frame(variable = s, 
@@ -506,62 +605,13 @@ for (s in speech_variables) {
              x = s, y = "whodas_complex_total_pre") +
         theme_minimal() +
         theme(plot.title = element_text(size = 17))
-  print(plot)
+  
+    print(plot)
+    
+    # Flush graphics device to ensure the plot is rendered
+    dev.flush()
 }
 
-# Print and save results
-print(plots)
-print(results)
-write.csv(stats_df, "stats_df.csv", row.names = FALSE)
-
-
-# Linear regression for each speech variable against WHODAS using complex scores 
-library(ggplot2)
-library(lmtest)
-
-results <- list()
-plots <- list()
-stats_df <- data.frame()  # Dataframe to store statistics
-p_values_lms <- c()  # Vector to collect p-values
-
-
-for (s in speech_variables) {
-    # Filter out observations where sex is NA
-    filtered_data <- WL_jou_bl_MDD_feeling %>%
-        filter(!is.na(sex), !is.na(!!as.symbol(s)), !is.na(hamd17_total_pre))
-    
-    # Linear regression without interaction term
-    formula <- as.formula(paste("whodas_complex_total_pre ~", s, "+ sex + age_screening"))
-    model <- lm(formula, data = filtered_data)
-    
-    # Model summary
-    model_summary <- summary(model)
-    
-    # Store the summary result
-    results[[paste(s, "whodas_complex_total_pre", sep = "_")]] <- model_summary
-    
-    # Extract coefficients and p-values
-    coefs <- summary(model)$coefficients
-    p_values_lms<- c(p_values_lms, coefs[2, "Pr(>|t|)"])  # Collect p-values
-    
-    # Create a summary stats row
-    stats_row <- data.frame(variable = s, 
-                            estimate = coefs[2, "Estimate"], 
-                            std_error = coefs[2, "Std. Error"], 
-                            statistic = coefs[2, "t value"], 
-                            p_value = coefs[2, "Pr(>|t|)"])
-    stats_df <- rbind(stats_df, stats_row)  # Append to the stats dataframe
-
-    # Create and save plots
-    plot <- ggplot(filtered_data, aes_string(x = s, y = "whodas_complex_total_pre")) +
-        geom_point(alpha = 0.6) +
-        geom_smooth(method = "lm", se = FALSE) + 
-        labs(title = paste(s, "vs", "whodas_complex_total_pre"),
-             x = s, y = "whodas_complex_total_pre") +
-        theme_minimal() +
-        theme(plot.title = element_text(size = 17))
-  print(plot)
-}
 
 # Print and save results
 print(plots)
@@ -612,7 +662,7 @@ for (s in speech_variables) {
              x = s, y = "whodas_simple_total_pre") +
         theme_minimal() +
         theme(plot.title = element_text(size = 17))
-  print(plot)
+plots <- c(plots, list(plot))
 }
 
 # Print and save results
