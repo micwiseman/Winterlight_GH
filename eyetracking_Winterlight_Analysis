@@ -211,6 +211,7 @@ speech_variables <- c('fundamental_frequency_mean','fundamental_frequency_varian
 
 # Linear regression for each speech variable against RT for prosaccade
 
+library(ggplot2)
 results <- list()
 plots <- list()
 stats_df <- data.frame()  # Dataframe to store statistics
@@ -244,6 +245,55 @@ for (s in speech_variables) {
 
     # Create and save plots
     plot <- ggplot(WL_eyetracking_jou_bl, aes_string(x = s, y = "mean_srt_via_cor_pros")) +
+        geom_point(alpha = 0.6) +
+        geom_smooth(method = "lm", se = FALSE) + 
+        labs(title = paste(s, "vs", "mean_srt_via_cor_pros"),
+             x = s, y = "mean_srt_via_cor_pros") +
+        theme_minimal() +
+        theme(plot.title = element_text(size = 17))
+plots <- c(plots, list(plot))
+}
+
+# Print and save results
+print(plots)
+print(results)
+
+# Linear regression for each speech variable against RT for prosaccade MDD only 
+
+results <- list()
+plots <- list()
+stats_df <- data.frame()  # Dataframe to store statistics
+p_values_lms <- c()  # Vector to collect p-values
+
+WL_eyetracking_jou_bl_mdd <- WL_eyetracking_jou_bl %>% filter(participant_group == "MDD")
+
+for (s in speech_variables) {
+
+    
+    # Linear regression without interaction term
+    formula <- as.formula(paste("mean_srt_via_cor_pros ~", s, "+ sex + age_screening + age_learned_english + testing_location"))
+    model <- lm(formula, data = WL_eyetracking_jou_bl_mdd)
+    
+    # Model summary
+    model_summary <- summary(model)
+    
+    # Store the summary result
+    results[[paste(s, "mean_srt_via_cor_pros", sep = "_")]] <- model_summary
+    
+    # Extract coefficients and p-values
+    coefs <- summary(model)$coefficients
+    p_values_lms<- c(p_values_lms, coefs[2, "Pr(>|t|)"])  # Collect p-values
+    
+    # Create a summary stats row
+    stats_row <- data.frame(variable = s, 
+                            estimate = coefs[2, "Estimate"], 
+                            std_error = coefs[2, "Std. Error"], 
+                            statistic = coefs[2, "t value"], 
+                            p_value = coefs[2, "Pr(>|t|)"])
+    stats_df <- rbind(stats_df, stats_row)  # Append to the stats dataframe
+
+    # Create and save plots
+    plot <- ggplot(WL_eyetracking_jou_bl_mdd, aes_string(x = s, y = "mean_srt_via_cor_pros")) +
         geom_point(alpha = 0.6) +
         geom_smooth(method = "lm", se = FALSE) + 
         labs(title = paste(s, "vs", "mean_srt_via_cor_pros"),
