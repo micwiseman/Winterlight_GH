@@ -11,6 +11,8 @@ library(readxl)
 library(rlang)
 library(dplyr)
 library(broom)
+library(lme4)
+library(sjPlot)
 
 
 # Install the here package (if haven't already)
@@ -39,7 +41,11 @@ WL <- WL[grep("^(TMS|MDD)", WL$participant_external_id), ]
 WL_2 <- WL_2[!(WL_2$participant_external_id == "TMS039" & WL_2$session_label %in% c("V2", "V3", "V4")), ]
 WL_2 <- WL_2[!(WL_2$participant_external_id == "TMS039b" & WL_2$session_label == "V1"), ]
 WL_2$participant_external_id[WL_2$session_label %in% c("V2", "V3") & WL_2$participant_external_id == "TMS039b"] <- "TMS039"
-
+WL_2$participant_external_id[WL_2$session_label %in% c("V2", "V3") & WL_2$participant_external_id == "TMS039b"] <- "TMS039"
+# TMS036 did 3rd assessment under id CTC036
+rows_to_modify <- WL_2$participant_external_id == "CTC036"
+WL_2$participant_external_id[rows_to_modify] <- "TMS036"
+WL_2$session_label[rows_to_modify] <- "V3"
 
 # Combine datasets
 common_columns <- intersect(names(WL), names(WL_2))
@@ -56,7 +62,7 @@ WL_combined$participant_group <- factor(
 )
 
 ## Remove participants with high QIDS
-WL_combined <- WL_combined[WL_combined$participant_external_id != "CTC036" &
+WL_combined <- WL_combined[
                           WL_combined$participant_external_id != "CTC004" &
                           WL_combined$participant_external_id != "CTC006" &
                           WL_combined$participant_external_id != "CTC017" &
@@ -199,31 +205,21 @@ WL_demo_psych <- select(WL_demo_psych, -ends_with(".psych"))
 
 # Replace values in session_label column
 
-WL <- WL[!(WL$session_label %in% c("V4", "V5", "V6", "V7", "V8")), ]
-WL$session_label <- gsub("Baseline|V1", "1", WL$session_label)
-WL$session_label <- gsub("Week 2|V2", "2", WL$session_label)
-WL$session_label <- gsub("Week 6|V3", "3", WL$session_label)
-WL$session_label <-as.numeric(WL$session_label)
+WL_demo_psych <- WL_demo_psych[!(WL_demo_psych$session_label %in% c("V4", "V5", "V6", "V7", "V8")), ]
+WL_demo_psych$session_label <- gsub("Baseline|V1", "1", WL_demo_psych$session_label)
+WL_demo_psych$session_label <- gsub("Week 2|V2", "2", WL_demo_psych$session_label)
+WL_demo_psych$session_label <- gsub("Week 6|V3", "3", WL_demo_psych$session_label)
+WL_demo_psych$session_label <-as.numeric(WL_demo_psych$session_label)
 
 # Convert to datetime, remove extra tasks and sort by date
-WL$sample_datetime_completed_utc <-as.Date(WL$sample_datetime_completed_utc, origin="1970-01-01")
-WL<- WL[!(WL$sample_id >= 85848 & WL$sample_id <= 85862), ]  
+WL_demo_psych$sample_datetime_completed_utc <-as.Date(WL_demo_psych$sample_datetime_completed_utc, origin="1970-01-01")
+WL_demo_psych<- WL_demo_psych[!(WL_demo_psych$sample_id >= 85848 & WL_demo_psych$sample_id <= 85862), ]  
 
 
-WL_Jou <- subsetTask(WL, "journaling")
-#Read in and merge demographics data 
-demoMDD <- read_excel("~/Lab/Winterlight/TMS_Demographics.xlsx")
-names(demoMDD)[1] <- "participant_external_id"
-demoCTRL <- read_excel("~/Lab/Winterlight/TMS_CTRL_Demographics.xlsx", sheet = 2)
-names(demoCTRL)[1] <- "participant_external_id"
-# Change the values in the sex column of demoCTRL
-demoCTRL$sex[demoCTRL$sex == 0] <- "F"
-demoCTRL$sex[demoCTRL$sex == 1] <- "M"
-demoALL <- bind_rows(demoMDD, demoCTRL)
-WL_Jou <- merge(WL_Jou, demoALL, by = "participant_external_id", all.x=TRUE)
+WL_jou <-subset_by_task(WL_demo_psych, "journaling")
+WL_feeling <- WL_jou %>%filter(stimulus_filename == "en_instruction_journal_feeling.mp3")
 
-# Separate by subtask
-WL_feeling <- subsetStimulus(WL_Jou, "en_instruction_journal_feeling.mp3")
+
 # Take out duplicates 
 WL_feeling <- WL_feeling[!(WL_feeling$participant_external_id == "TMS031" & WL_feeling$session_label == "V2"), ]
 WL_feeling <- WL_feeling[!(WL_feeling$participant_external_id == "TMS032" & WL_feeling$session_label == "V2"), ]
@@ -247,24 +243,49 @@ for (id in unique(WL_feeling$participant_external_id)) {
 
 time_diffs<-data.frame(participant_external_id = WL_feeling$participant_external_id, session_label = WL_feeling$session_label, time_diff = WL_feeling$time_diff)
 
-
 # Loop over each participant ID
 for (id in unique(WL_feeling$participant_external_id)) {
+  # Skip participant TMS054
+  if (id == "TMS054") {
+    next
+  }
+  
   # Subset the data frame for the current participant
   participant_df <- WL_feeling[WL_feeling$participant_external_id == id, ]
+  
   # Find the row index for V2 session
   v2_row <- which(participant_df$session_label == "2")
+  
   # If there is no V2 session, skip to the next participant ID
   if (length(v2_row) == 0) {
     next
   }
+  
+  # Find the row index for V3 session
+  v3_row <- which(participant_df$session_label == "3")
+  
+  # Check if the time difference between session 2 and session 3 is 0
+  if (length(v2_row) > 0 && length(v3_row) > 0) {
+    for (i in seq_along(v2_row)) {
+      if (participant_df$time_diff[v2_row[i]] == 0) {
+        participant_df <- participant_df[-v3_row[v3_row > v2_row[i]][1], ]
+        # Update the original data frame with the modified values
+        WL_feeling <- WL_feeling[WL_feeling$participant_external_id != id, ]
+        WL_feeling <- rbind(WL_feeling, participant_df)
+        next
+      }
+    }
+  }
+  
   # Check if time difference is greater than 20 for V2 sessions
   if (any(participant_df$time_diff[v2_row] > 20)) {
     # If condition is true, change session label to V3 for V2 session
     participant_df$session_label[v2_row] <- "3"
   }
+  
   # Update the original data frame with the modified values
-  WL_feeling[WL_feeling$participant_external_id == id, ] <- participant_df
+  WL_feeling <- WL_feeling[WL_feeling$participant_external_id != id, ]
+  WL_feeling <- rbind(WL_feeling, participant_df)
 }
 
 #check time diffs again
@@ -300,15 +321,15 @@ library(car)
 my_lmer <- function(data, outcome_var, y.axis, plot_title) {
   # Create the formula string
   data$session_label <- as.numeric(data$session_label)
-  formula_str <- paste(outcome_var, "~ session_label * Group + 
-                       age_screening + sex + age_learned_english + 
+  formula_str <- paste(outcome_var, "~ session_label * participant_group + 
+                       age_screening + sex + age_learned_english + testing_location+
                        (1| participant_external_id)")
   # Fit the linear mixed-effects model
   model <- lmer(formula_str, data = data)
   print(summary(model))
   
   # Plot
-  plot <- plot_model(model, type = "pred", terms = c("session_label", "Group"),
+  plot <- plot_model(model, type = "pred", terms = c("session_label", "participant_group"),
                      show.ci = TRUE, show.data = TRUE, 
                      colors = c("blue", "#FF76F2")) +
     xlab("Visit number") +
@@ -340,29 +361,8 @@ my_lmer(WL_feeling, "fundamental_frequency_variance", "F0 variance (Hz)", "Funda
 my_lmer(WL_feeling, "fundamental_frequency_mean", "Mean F0 (Hz)", "Mean fundamental frequency")
 #medium pause duration 
 my_lmer(WL_feeling, "medium_pause_duration", "Pause duration (s)", "Pause duration")
-#HNR ac mean 
-my_lmer(WL_feeling, "hnr_ac_mean", "HNR (dB)", "Mean HNR")
-#HNR ac variance 
-my_lmer(WL_feeling, "hnr_ac_variance", "HNR (dB)", "HNR, variance")
-#Avg change in jitter 
-my_lmer(WL_feeling, "jitter_ddp", "%", "Average change in jitter")
-#Local jitter
-my_lmer(WL_feeling, "jitter_local", "%", "Local jitter")
-# Relative distal jitter
-my_lmer(WL_feeling, "jitter_ppq5", "%", "Relative distal jitter")
-# Relative proximal jitter 
-my_lmer(WL_feeling, "jitter_rap", "%", "Relative proximal jitter")
-# Relative distal shimmer
-my_lmer(WL_feeling, "shimmer_apq11", "%", "Relative distal shimmer")
-# Relative proximal shimmer 
-my_lmer(WL_feeling, "shimmer_apq3", "%", "Relative proximal shimmer")
-# Avg change in shimmer 
-my_lmer(WL_feeling, "shimmer_dda", "%", "Average change in shimmer")
-# local shimmer 
-my_lmer(WL_feeling, "shimmer_local", "%", "Local shimmer")
-# pronoun count 
-my_lmer(WL_feeling, "tag_PRP", "Raw count", "Personal pronoun use")
-
+#intensity 
+my_lmer(WL_feeling, "intensity_mean_db", "Intensity (db)", "Intensity")
 
 
 
