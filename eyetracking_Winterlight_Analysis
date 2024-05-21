@@ -13,6 +13,8 @@ library(readxl)
 library(dplyr)
 library(readr)
 library(tidyr)
+library(ggplot2)
+library(gridExtra)
 
 # Read datasets
 # Read and preprocess speech data
@@ -211,7 +213,7 @@ speech_variables <- c('fundamental_frequency_mean','fundamental_frequency_varian
 
 # Linear regression for each speech variable against RT for prosaccade
 
-library(ggplot2)
+
 results <- list()
 plots <- list()
 stats_df <- data.frame()  # Dataframe to store statistics
@@ -301,11 +303,13 @@ for (s in speech_variables) {
         theme_minimal() +
         theme(plot.title = element_text(size = 17))
 plots <- c(plots, list(plot))
+
 }
 
 # Print and save results
-print(plots)
 print(results)
+plots
+
 
 # Linear regression for each speech variable against RT for prosaccade with interaction 
 
