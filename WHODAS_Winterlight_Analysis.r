@@ -457,58 +457,6 @@ print(WL_jou_bl_MDD_feeling$participant_external_id[is.na(WL_jou_bl_MDD_feeling$
 
 print(summary(WL_jou_bl_MDD_feeling$whodas_complex_total_pre))
 
-# Linear regression for each speech variable against WHODAS using complex scores 
-library(lmtest)
-
-results <- list()
-plots <- list()
-stats_df <- data.frame()  # Dataframe to store statistics
-p_values_lms <- c()  # Vector to collect p-values
-
-
-for (s in speech_variables) {
-    # Filter out observations where sex is NA
-    filtered_data <- WL_jou_bl_MDD_feeling %>%
-        filter(!is.na(sex), !is.na(!!as.symbol(s)), !is.na(hamd17_total_pre))
-    
-    # Linear regression without interaction term
-    formula <- as.formula(paste("whodas_complex_total_pre ~", s, "+ sex + age_screening + age_learned_english"))
-    model <- lm(formula, data = filtered_data)
-    
-    # Model summary
-    model_summary <- summary(model)
-    
-    # Store the summary result
-    results[[paste(s, "whodas_complex_total_pre", sep = "_")]] <- model_summary
-    
-    # Extract coefficients and p-values
-    coefs <- summary(model)$coefficients
-    p_values_lms<- c(p_values_lms, coefs[2, "Pr(>|t|)"])  # Collect p-values
-    
-    # Create a summary stats row
-    stats_row <- data.frame(variable = s, 
-                            estimate = coefs[2, "Estimate"], 
-                            std_error = coefs[2, "Std. Error"], 
-                            statistic = coefs[2, "t value"], 
-                            p_value = coefs[2, "Pr(>|t|)"])
-    stats_df <- rbind(stats_df, stats_row)  # Append to the stats dataframe
-
-    # Create and save plots
-    plot <- ggplot(filtered_data, aes_string(x = s, y = "whodas_complex_total_pre")) +
-        geom_point(alpha = 0.6) +
-        geom_smooth(method = "lm", se = FALSE) + 
-        labs(title = paste(s, "vs", "whodas_complex_total_pre"),
-             x = s, y = "whodas_complex_total_pre") +
-        theme_minimal() +
-        theme(plot.title = element_text(size = 17))
-  print(plot)
-}
-
-# Print and save results
-print(plots)
-print(results)
-write.csv(stats_df, "stats_df.csv", row.names = FALSE)
-
 
 # Linear regression for each speech variable against WHODAS using complex scores 
 library(ggplot2)
@@ -560,14 +508,19 @@ WL_jou_bl_MDD_feeling <- WL_jou_bl_MDD %>% filter(stimulus_filename == "en_instr
 
 
 # Linear regression for each speech variable against WHODAS using complex scores 
-library(ggplot2)
 library(lmtest)
+library(ggplot2)
+library(dplyr)
 
 results <- list()
 plots <- list()
-stats_df <- data.frame()  # Dataframe to store statistics
+stats_df <- data.frame(variable = character(),
+                       estimate = numeric(),
+                       std_error = numeric(),
+                       statistic = numeric(),
+                       p_value = numeric(),
+                       stringsAsFactors = FALSE)  # Dataframe to store statistics
 p_values_lms <- c()  # Vector to collect p-values
-# Ensure graphics device is set
 
 # Loop through each speech variable
 for (s in speech_variables) {
@@ -607,9 +560,6 @@ for (s in speech_variables) {
         theme(plot.title = element_text(size = 17))
   
     print(plot)
-    
-    # Flush graphics device to ensure the plot is rendered
-    dev.flush()
 }
 
 
@@ -617,6 +567,10 @@ for (s in speech_variables) {
 print(plots)
 print(results)
 write.csv(stats_df, "stats_df.csv", row.names = FALSE)
+
+
+
+
 
 
 # Linear regression for each speech variable against WHODAS using simple scores 
