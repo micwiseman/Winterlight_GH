@@ -646,6 +646,40 @@ print(plots)
 print(results)
 
 
+# Linear regression for antisaccade RTs and HAMD 
+
+
+WL_eyetracking_jou_bl_mdd <- WL_eyetracking_jou_bl %>% filter(participant_group == "MDD")
+
+# Linear regression 
+model <- lm(hamd17_total_pre ~ mean_srt_via_cor_anti + sex+age_screening, data = WL_eyetracking_jou_bl_mdd)
+  
+print(summary(model))
+
+  
+# Create plot
+plot <- ggplot(WL_eyetracking_jou_bl_mdd, aes_string(x = "mean_srt_via_cor_anti", y = "hamd17_total_pre")) +
+    geom_point(alpha = 0.6) +
+    geom_smooth(method = "lm", se = FALSE) + 
+    labs(title = "HAMD vs Anti-saccade RT",
+         x = "RT (ms)", y = "HAMD") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 17))
+
+print(plot)
+print(results)
+
+# group diffs 
+
+
+model <- lm(mean_srt_via_cor_anti ~ participant_group+age_screening+sex, data = WL_eyetracking_jou_bl)
+
+ancova <- Anova(model, type = "III")
+
+print(ancova)
+
+
+
 # Calculate mean and SD of age for each participant group
 age_stats <- WL_eyetracking_jou_bl %>%
   group_by(participant_group) %>%

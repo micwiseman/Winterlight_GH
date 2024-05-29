@@ -393,3 +393,55 @@ my_lmer(MDD_feeling, "fundamental_frequency_mean", "Mean F0 (Hz)", "Mean fundame
 #medium pause duration 
 my_lmer(MDD_feeling, "medium_pause_duration", "Pause duration (s)", "Pause duration")
 
+
+## Log regression 
+# Define the function to fit a simple logistic regression model
+fit_glm_change <- function(data, outcome_var) {
+  # Ensure session_label is numeric
+  data$session_label <- as.numeric(data$session_label)
+  
+  # Ensure participant_group is a factor with the correct levels
+  data$participant_group <- factor(data$participant_group, levels = c("Responder", "Non-responder"))
+  
+  # Filter the data to remove rows with NA in participant_group
+  data <- data %>% filter(!is.na(participant_group))
+  
+  # Filter the data for session 1 and session 3
+  data_session1 <- data %>% filter(session_label == 1)
+  data_session3 <- data %>% filter(session_label == 3)
+  
+  # Merge the data based on participant ID, keeping only those with data for both sessions
+  data_merged <- merge(data_session1, data_session3, by = "participant_external_id", suffixes = c("_s1", "_s3"))
+  
+  # Calculate the change in the predictor variable between session 1 and session 3
+  data_merged$change_predictor <- data_merged[[paste0(outcome_var, "_s3")]] - data_merged[[paste0(outcome_var, "_s1")]]
+  
+  # Create a new data frame with the relevant variables
+  data_analysis <- data_merged %>% select(participant_group_s1, change_predictor,
+                                          age_screening_s1, sex_s1)
+  
+  # Rename columns for simplicity
+  colnames(data_analysis) <- c("participant_group", "change_predictor",
+                               "age_screening", "sex")
+  
+  # Create the formula string
+  formula_str <- "participant_group ~ change_predictor + age_screening + sex"
+  
+  # Fit the logistic regression model
+  model <- glm(as.formula(formula_str), data = data_analysis, family = binomial)
+  
+  print(summary(model))
+  
+  return(model)
+}
+
+
+fit_glm_change(data = MDD_feeling, outcome_var = "sentiment_arousal")
+fit_glm_change(data = MDD_feeling, outcome_var = "sentiment_valence")
+fit_glm_change(data = MDD_feeling, outcome_var = "sentiment_dominance")
+fit_glm_change(data = MDD_feeling, outcome_var = "fundamental_frequency_mean")
+fit_glm_change(data = MDD_feeling, outcome_var = "fundamental_frequency_variance")
+fit_glm_change(data = MDD_feeling, outcome_var = "intensity_mean_db")
+fit_glm_change(data = MDD_feeling, outcome_var = "medium_pause_duration")
+fit_glm_change(data = MDD_feeling, outcome_var = "speech_rate")
+
