@@ -77,16 +77,16 @@ print(bxp)
   
 WL_jou_bl_MDD <- WL_jou_bl_feeling %>% filter(participant_group == "MDD")
 
-filtered_data <- WL_jou_bl_MDD %>%
+filtered_data_mdd <- WL_jou_bl_MDD %>%
   filter(!is.na(sex), !is.na(!!as.symbol(s)), !is.na(hamd17_total_pre))
   
-lm_model <- lm(hamd17_total_pre ~ speech_composite + sex + age_screening + age_learned_english + testing_location, data = filtered_data)
+lm_model <- lm(hamd17_total_pre ~ speech_composite + sex + age_screening + age_learned_english + testing_location, data = filtered_data_mdd)
   
 model_summary <- summary(lm_model)
 
   
   # Create and save plots
-plot <- ggplot(filtered_data, aes(x = speech_composite, y = hamd17_total_pre)) +
+plot <- ggplot(filtered_data_mdd, aes(x = speech_composite, y = hamd17_total_pre)) +
   geom_point(alpha = 0.6) +
   geom_smooth(method = "lm", se = FALSE) + 
   labs(title = "Speech Composite x HAMD", x = "Speech Composite", y = "HAMD") +
@@ -96,4 +96,41 @@ plot <- ggplot(filtered_data, aes(x = speech_composite, y = hamd17_total_pre)) +
         title = element_text(size = 18))
 
 print(plot)
+
+
+# Plot ROC curve for group differences ------------------------------------
+
+# Install and load pROC
+if (!require(pROC)) {
+  install.packages("pROC")
+}
+library(pROC)
+
+filtered_data <- WL_jou_bl_feeling%>% 
+  filter(!is.na(speech_composite) & 
+           !is.na(age_screening) & 
+           !is.na(sex) & 
+           !is.na(age_learned_english) & 
+           !is.na(testing_location)&
+           !is.na(participant_group))
+
+filtered_data$participant_group <- factor(filtered_data$participant_group)
+
+
+# Generate predicted probabilities
+logistic_model <- glm(participant_group ~ speech_composite + age_screening + sex + age_learned_english + testing_location,
+                      data = filtered_data, family = binomial)
+predicted_probs <- predict(logistic_model, type = "response")
+
+# Create the ROC curve
+roc_curve <- roc(filtered_data$participant_group, predicted_probs)
+
+# Plot the ROC curve
+plot(roc_curve, main = "ROC Curve for Speech Composite", col = "blue", lwd = 2)
+# Add AUC to the plot
+auc_value <- auc(roc_curve)
+legend("bottomright", legend = paste("AUC =", round(auc_value, 3)), col = "blue", lwd = 2)
+
+
+
 
