@@ -248,7 +248,7 @@ for (s in speech_variables) {
     geom_point(alpha = 0.6) +
     geom_smooth(method = "lm", se = FALSE) + 
     labs(title = paste(s, "vs", "gad7"),
-         x = s, y = "ga7") +
+         x = s, y = "gad7") +
     theme_minimal() +
     theme(plot.title = element_text(size = 17))
   
@@ -261,64 +261,69 @@ write.csv(stats_df, "stats_df.csv", row.names = FALSE)
 
 
 # Function to check assumptions of ANCOVA ---------------------------------
-
-library(car)
-library(ggpubr)
-
-check_ancova_assumptions <- function(model, data) {
-  # Ensure the input model is of class 'lm'
-  if (!inherits(model, "lm")) {
-    stop("The input model must be of class 'lm'.")
-  }
+check_ancova_assumptions <- function(data, speech_variable, covariates) {
+  # Load necessary packages
+  if (!require("ggplot2")) install.packages("ggplot2", dependencies = TRUE)
+  if (!require("car")) install.packages("car", dependencies = TRUE)
+  if (!require("dplyr")) install.packages("dplyr", dependencies = TRUE)
+  if (!require("lmtest")) install.packages("lmtest", dependencies = TRUE)
   
-  # Extract the terms from the model
-  terms_info <- terms(model)
-  response_var <- as.character(attr(terms_info, "variables")[-1][attr(terms_info, "response")])
-  variables <- attr(terms_info, "term.labels")
+  library(ggplot2)
+  library(car)
+  library(dplyr)
+  library(lmtest)
   
+  # Fit the ANCOVA model
+  formula <- as.formula(paste(speech_variable, "~ participant_group +", paste(covariates, collapse = " + ")))
+  model <- lm(formula, data = data)
   
-  # Identify factors and covariates used in the model
-  factors <- variables[sapply(variables, function(v) is.factor(data[[v]]) || is.character(data[[v]]))]
-  covariates <- variables[!variables %in% factors]
-  
-  ancova_checks <- list()
-  
+  # Assumption 1: Linearity
+  # Scatter plots for each covariate against the speech variable, colored by participant group
   for (covariate in covariates) {
-    for (factor in factors) {
-      cat("Checking interactions between ", factor, " and ", covariate, "\n", sep = "")
-      
-      # 1. Homogeneity of Regression Slopes
-      interaction_term <- paste(factor, covariate, sep = ":")
-      interaction_model <- update(model, as.formula(paste(". ~ . +", interaction_term)))
-      interaction_test <- summary(interaction_model)
-      
-      if (interaction_term %in% rownames(interaction_test$coefficients)) {
-        interaction_p_value <- interaction_test$coefficients[interaction_term, "Pr(>|t|)"]
-        interaction_result <- sprintf("Homogeneity of Slopes (Interaction) Test for %s and %s: p-value = %.4f",
-                                      factor, covariate, interaction_p_value)
-      } else {
-        interaction_result <- sprintf("Interaction term %s not significant.", interaction_term)
-      }
-      
-      # 2. Independence of Covariate and Factor
-      if (is.numeric(data[[covariate]])) {
-        independence_test <- aov(as.formula(paste(covariate, "~", factor)), data = data)
-        independence_test_result <- summary(independence_test)[[1]][["Pr(>F)"]][1]
-        independence_result <- sprintf("Independence of Covariate and Factor (ANOVA) Test for %s and %s: p-value = %.4f",
-                                       covariate, factor, independence_test_result)
-      } else {
-        independence_result <- sprintf("Covariate %s is not numeric, skipped independence check for %s.", covariate, factor)
-      }
-      
-      # Collect results
-      ancova_checks <- c(ancova_checks, list(interaction_result, independence_result))
-      
-      # Print the current check results
-      cat(interaction_result, "\n")
-      cat(independence_result, "\n\n")
-    }
+    print(
+      ggplot(data, aes_string(x = covariate, y = speech_variable, color = "participant_group")) +
+        geom_point() +
+        geom_smooth(method = "lm", se = FALSE) +
+        ggtitle(paste("Scatter plot of", speech_variable, "vs", covariate, "by participant group"))
+    )
   }
   
+  # Assumption 2: Homogeneity of regression slopes
+  # Fit models with interaction terms to check if slopes are homogeneous
+  interaction_formula <- as.formula(paste(speech_variable, "~ participant_group *", paste(covariates, collapse = " + ")))
+  interaction_model <- lm(interaction_formula, data = data)
+  
+  # Compare the models using ANOVA
+  print("ANOVA for Homogeneity of Slopes:")
+  print(anova(model, interaction_model))
+  
+  # Assumption 3: Normality of residuals
+  # Q-Q plot for residuals
+  print(
+    ggplot(model, aes(sample = .resid)) +
+      stat_qq() +
+      stat_qq_line() +
+      ggtitle("Q-Q plot of residuals")
+  )
+  
+  # Shapiro-Wilk test for normality
+  shapiro_test <- shapiro.test(residuals(model))
+  print("Shapiro-Wilk test for normality:")
+  print(shapiro_test)
+  
+  # Assumption 4: Homoscedasticity
+  # Residuals vs Fitted plot
+  print(
+    ggplot(model, aes(.fitted, .resid)) +
+      geom_point() +
+      geom_hline(yintercept = 0, linetype = "dashed") +
+      ggtitle("Residuals vs Fitted plot")
+  )
+  
+  # Breusch-Pagan test for homoscedasticity
+  bp_test <- bptest(model)
+  print("Breusch-Pagan test for homoscedasticity:")
+  print(bp_test)
 }
 
 
@@ -330,7 +335,7 @@ library(ggsignif)
 
 
 # Function to perform ANCOVA and generate a plot for a single speech variable
-perform_ancova_analysis <- function(data, speech_variable, covariates, stimulus_file, y_axis_label) {
+  perform_ancova_analysis <- function(data, speech_variable, covariates, stimulus_file, y_axis_label) {
   # Check if the required columns exist in the data
   required_columns <- c("stimulus_filename", "participant_group", speech_variable, covariates)
   missing_columns <- setdiff(required_columns, colnames(data))
@@ -415,14 +420,23 @@ perform_ancova_analysis <- function(data, speech_variable, covariates, stimulus_
 
 # Check ANCOVA assumptions for each speech variable -----------------------
 # Example usage:
-check_ancova_assumptions(lm(hamd17_total_pre ~ fundamental_frequency_mean + sex + age_screening + age_learned_english+testing_location, data = WL_full_jou_bl), WL_full_jou_bl)
-check_ancova_assumptions(lm(hamd17_total_pre ~ fundamental_frequency_variance + sex + age_screening + age_learned_english+testing_location, data = WL_full_jou_bl), WL_full_jou_bl)
-check_ancova_assumptions(lm(hamd17_total_pre ~ intensity_mean_db + sex + age_screening + age_learned_english+testing_location, data = WL_full_jou_bl), WL_full_jou_bl)
-check_ancova_assumptions(lm(hamd17_total_pre ~ medium_pause_duration + sex + age_screening + age_learned_english+testing_location, data = WL_full_jou_bl), WL_full_jou_bl)
-check_ancova_assumptions(lm(hamd17_total_pre ~ speech_rate + sex + age_screening + age_learned_english+testing_location, data = WL_full_jou_bl), WL_full_jou_bl)
-check_ancova_assumptions(lm(hamd17_total_pre ~ sentiment_valence + sex + age_screening + age_learned_english+testing_location, data = WL_full_jou_bl), WL_full_jou_bl)
-check_ancova_assumptions(lm(hamd17_total_pre ~ sentiment_dominance + sex + age_screening + age_learned_english+testing_location, data = WL_full_jou_bl), WL_full_jou_bl)
-check_ancova_assumptions(lm(hamd17_total_pre ~ sentiment_arousal + sex + age_screening + age_learned_english+testing_location, data = WL_full_jou_bl), WL_full_jou_bl)
+check_ancova_assumptions(WL_full_jou_bl, "fundamental_frequency_mean", c("sex", "age_learned_english", 
+                                                                         "testing_location", "age_screening"))
+check_ancova_assumptions(WL_full_jou_bl, "fundamental_frequency_variance", c("sex", "age_learned_english", 
+                                                                         "testing_location", "age_screening"))
+check_ancova_assumptions(WL_full_jou_bl, "intensity_mean_db", c("sex", "age_learned_english", 
+                                                                             "testing_location", "age_screening"))
+check_ancova_assumptions(WL_full_jou_bl, "medium_pause_duration", c("sex", "age_learned_english", 
+                                                                "testing_location", "age_screening"))
+check_ancova_assumptions(WL_full_jou_bl, "speech_rate", c("sex", "age_learned_english", 
+                                                                    "testing_location", "age_screening"))
+
+check_ancova_assumptions(WL_full_jou_bl, "sentiment_valence", c("sex", "age_learned_english", 
+                                                                "testing_location", "age_screening"))
+check_ancova_assumptions(WL_full_jou_bl, "sentiment_dominance", c("sex", "age_learned_english", 
+                                                                "testing_location", "age_screening"))
+check_ancova_assumptions(WL_full_jou_bl, "sentiment_arousal", c("sex", "age_learned_english", 
+                                                          "testing_location", "age_screening"))
 
 
 # Perform Ancovas for each speech feature ---------------------------------
@@ -452,6 +466,71 @@ perform_ancova_analysis(data = WL_full_jou_bl, "sentiment_arousal",
 perform_ancova_analysis(data = WL_full_jou_bl, "sentiment_dominance", 
                         covariates = c("sex", "age_learned_english", "age_screening", "testing_location"), 
                         stimulus_file = "en_instruction_journal_feeling.mp3", "Dominance Score")
+
+
+
+# Transform data(box cox transformation function )----------------------------------------------------------
+
+# Load necessary library
+if (!require("MASS")) install.packages("MASS", dependencies = TRUE)
+library(MASS)
+
+# Function to apply Box-Cox transformation
+transform_speech_variable <- function(data, speech_variable) {
+  # Check for negative or zero values and adjust
+  if (any(data[[speech_variable]] <= 0)) {
+    shift <- abs(min(data[[speech_variable]])) + 1
+    data[[speech_variable]] <- data[[speech_variable]] + shift
+  } else {
+    shift <- 0
+  }
+  
+  # Determine skewness
+  skewness_value <- mean((data[[speech_variable]] - mean(data[[speech_variable]]))^3) / (sd(data[[speech_variable]])^3)
+  
+  # Handle right-skewed data
+  if (skewness_value > 0) {
+    boxcox_result <- boxcox(lm(data[[speech_variable]] ~ 1), plotit = FALSE)
+    lambda_optimal <- boxcox_result$x[which.max(boxcox_result$y)]
+    print(paste("Optimal lambda for right-skewed data:", lambda_optimal))
+    
+    if (lambda_optimal == 0) {
+      transformed_data <- log(data[[speech_variable]])
+    } else {
+      transformed_data <- (data[[speech_variable]]^lambda_optimal - 1) / lambda_optimal
+    }
+  }
+  # Handle left-skewed data
+  else {
+    constant <- max(data[[speech_variable]]) + 1
+    reflected_data <- constant - data[[speech_variable]]
+    boxcox_result <- boxcox(lm(reflected_data ~ 1), plotit = FALSE)
+    lambda_optimal <- boxcox_result$x[which.max(boxcox_result$y)]
+    print(paste("Optimal lambda for left-skewed data:", lambda_optimal))
+    
+    if (lambda_optimal == 0) {
+      transformed_reflected_data <- log(reflected_data)
+    } else {
+      transformed_reflected_data <- (reflected_data^lambda_optimal - 1) / lambda_optimal
+    }
+    transformed_data <- constant - transformed_reflected_data
+  }
+  
+  # Adjust back if the data was shifted
+  if (shift > 0) {
+    transformed_data <- transformed_data - shift
+  }
+  
+  return(transformed_data)
+}
+
+
+# Apply the transformation
+WL_full_jou_bl$fundamental_frequency_mean_bc <- transform_speech_variable(WL_full_jou_bl, "fundamental_frequency_mean_bc")
+WL_full_jou_bl$fundamental_frequency_variance_bc <- transform_speech_variable(WL_full_jou_bl, "fundamental_frequency_variance_bc")
+WL_full_jou_bl$fundamental_frequency_variance_bc <- transform_speech_variable(WL_full_jou_bl, "fundamental_frequency_variance_bc")
+
+
 
 
 ## BH FDR Correction 
